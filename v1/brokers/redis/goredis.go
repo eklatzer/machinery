@@ -120,10 +120,13 @@ func (b *BrokerGR) StartConsuming(consumerTag string, concurrency int, taskProce
 				close(deliveries)
 				return
 			case <-pool:
-				task, _ := b.nextTask(getQueueGR(b.GetConfig(), taskProcessor))
-				//TODO: should this error be ignored?
-				if len(task) > 0 {
-					deliveries <- task
+				task, err := b.nextTask(getQueueGR(b.GetConfig(), taskProcessor))
+				if err != nil {
+					log.ERROR.Print(err)
+				} else {
+					if len(task) > 0 {
+						deliveries <- task
+					}
 				}
 
 				pool <- struct{}{}

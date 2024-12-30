@@ -108,25 +108,36 @@ func (b *Broker) StartConsuming(consumerTag string, concurrency int, taskProcess
 			select {
 			// A way to stop this goroutine from b.StopConsuming
 			case <-b.GetStopChan():
+				log.INFO.Print("Stop signal received")
 				close(deliveries)
 				return
 			case <-pool:
+				log.DEBUG.Print("Got a slot from the pool")
 				select {
 				case <-b.GetStopChan():
+					log.INFO.Print("Stop signal received")
 					close(deliveries)
 					return
 				default:
 				}
 
 				if taskProcessor.PreConsumeHandler() {
-					task, _ := b.nextTask(getQueue(b.GetConfig(), taskProcessor))
-					//TODO: should this error be ignored?
-					if len(task) > 0 {
-						deliveries <- task
+					task, err := b.nextTask(getQueue(b.GetConfig(), taskProcessor))
+					if err != nil {
+						log.ERROR.Print(err)
+					} else {
+						if len(task) > 0 {
+							deliveries <- task
+						}
 					}
 				}
 
+				log.DEBUG.Print("Releasing slot back to the pool")
+
 				pool <- struct{}{}
+			default:
+				log.DEBUG.Print("Failed to get a slot from the pool")
+				time.Sleep(500 * time.Millisecond)
 			}
 		}
 	}()
